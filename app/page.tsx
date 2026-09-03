@@ -1,60 +1,46 @@
-﻿import { Suspense } from "react";
+import { Suspense } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (sesuai respons API ffzstore) ─────────────────────────────────────
 
 interface Product {
-  code: string;
-  name: string;
-  price: number;
-  status: string;
-  category_id?: string | number;
-  category?: string;
-  [key: string]: unknown;
-}
-
-interface Category {
-  id: string | number;
-  name: string;
-  [key: string]: unknown;
+  product_id: string;
+  product_name: string;
+  product_code: string;
+  product_price: number;
+  is_active: boolean;
+  category_type: string;
+  category_title: string;
+  category_subtitle: string | null;
 }
 
 // ─── Data Fetching ────────────────────────────────────────────────────────────
 
 async function fetchProducts(): Promise<Product[]> {
   const apiKey = process.env.FFZSTORE_API_KEY;
-  const baseUrl = process.env.FFZSTORE_BASE_URL ?? "https://api.ffzstore.com";
 
-  const res = await fetch(`${baseUrl}/v1/products`, {
-    headers: { Authorization: apiKey ?? "" },
-    next: { revalidate: 300 }, // cache 5 minutes
-  });
+  // Jangan fetch jika API key belum dikonfigurasi
+  if (!apiKey || apiKey === "your_api_key_here") return [];
 
-  if (!res.ok) {
-    console.error("Failed to fetch products:", res.status, await res.text());
+  const baseUrl = "https://api.ffzstore.com";
+
+  try {
+    const res = await fetch(`${baseUrl}/v1/products`, {
+      headers: { Authorization: apiKey },
+      next: { revalidate: 300 },
+    });
+
+    if (!res.ok) {
+      console.error("Failed to fetch products:", res.status, await res.text());
+      return [];
+    }
+
+    const json = await res.json();
+    // Respons: { statusCode, message, data: [...] }
+    return Array.isArray(json) ? json : (json.data ?? []);
+  } catch (err) {
+    console.error("Error fetching products:", err);
     return [];
   }
-
-  const json = await res.json();
-  // API might return { data: [...] } or directly an array
-  return Array.isArray(json) ? json : (json.data ?? json.products ?? []);
-}
-
-async function fetchCategories(): Promise<Category[]> {
-  const apiKey = process.env.FFZSTORE_API_KEY;
-  const baseUrl = process.env.FFZSTORE_BASE_URL ?? "https://api.ffzstore.com";
-
-  const res = await fetch(`${baseUrl}/v1/category`, {
-    headers: { Authorization: apiKey ?? "" },
-    next: { revalidate: 300 },
-  });
-
-  if (!res.ok) {
-    console.error("Failed to fetch categories:", res.status, await res.text());
-    return [];
-  }
-
-  const json = await res.json();
-  return Array.isArray(json) ? json : (json.data ?? json.categories ?? []);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,24 +50,6 @@ function formatRupiah(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function getStatusStyle(status: string): string {
-  const s = status?.toLowerCase() ?? "";
-  if (s === "open" || s === "active" || s === "available") {
-    return "text-green-500 font-semibold";
-  }
-  if (s === "closed" || s === "inactive" || s === "unavailable") {
-    return "text-red-500 font-semibold";
-  }
-  return "text-yellow-500 font-semibold";
-}
-
-function getStatusLabel(status: string): string {
-  const s = status?.toLowerCase() ?? "";
-  if (s === "open" || s === "active" || s === "available") return "Open";
-  if (s === "closed" || s === "inactive" || s === "unavailable") return "Closed";
-  return status ?? "-";
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -136,24 +104,35 @@ function CategoryTable({
           ) : (
             products.map((product, idx) => (
               <tr
-                key={product.code ?? idx}
+                key={product.product_id ?? idx}
                 className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/40"}
               >
+                {/* Kode */}
                 <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.code ?? "-"}
+                  {product.product_code ?? "-"}
                 </td>
+                {/* Keterangan: nama produk, tampilkan subtitle jika ada */}
                 <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.name ?? "-"}
+                  {product.product_name ?? "-"}
+                  {product.category_subtitle && (
+                    <span className="text-gray-400 ml-1 text-xs">
+                      ({product.category_subtitle})
+                    </span>
+                  )}
                 </td>
+                {/* Harga */}
                 <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.price != null ? formatRupiah(product.price) : "-"}
+                  {product.product_price != null
+                    ? formatRupiah(product.product_price)
+                    : "-"}
                 </td>
+                {/* Status berdasarkan is_active (boolean) */}
                 <td
-                  className={`text-center py-2 px-4 border border-gray-200/70 ${getStatusStyle(
-                    product.status ?? ""
-                  )}`}
+                  className={`text-center py-2 px-4 border border-gray-200/70 font-semibold ${
+                    product.is_active ? "text-green-500" : "text-red-500"
+                  }`}
                 >
-                  {getStatusLabel(product.status ?? "")}
+                  {product.is_active ? "Open" : "Closed"}
                 </td>
               </tr>
             ))
@@ -175,55 +154,29 @@ function ErrorBanner({ message }: { message: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 async function PricelistContent() {
-  const [products, categories] = await Promise.all([
-    fetchProducts(),
-    fetchCategories(),
-  ]);
+  const products = await fetchProducts();
 
   const apiKey = process.env.FFZSTORE_API_KEY;
   const isKeyMissing = !apiKey || apiKey === "your_api_key_here";
 
-  // Group products by category
-  type GroupMap = Record<string, { name: string; products: Product[] }>;
+  // Group by category_title (sudah tersedia langsung di tiap produk)
+  const grouped: Record<string, { subtitle: string | null; products: Product[] }> = {};
 
-  const grouped: GroupMap = {};
-
-  // First, build groups from categories
-  for (const cat of categories) {
-    const key = String(cat.id);
-    grouped[key] = { name: cat.name, products: [] };
-  }
-
-  // Then, assign products to their category groups
   for (const product of products) {
-    // Try different possible field names for category reference
-    const catId =
-      product.category_id ??
-      (product.category as string | number | undefined) ??
-      "uncategorized";
-    const key = String(catId);
-
+    const key = product.category_title ?? "Lainnya";
     if (!grouped[key]) {
-      // Category not in the categories list — create on-the-fly
-      grouped[key] = {
-        name:
-          typeof product.category === "string"
-            ? product.category
-            : `Kategori ${key}`,
-        products: [],
-      };
+      grouped[key] = { subtitle: product.category_subtitle, products: [] };
     }
     grouped[key].products.push(product);
   }
 
-  // Filter out empty categories (unless all are empty, keep them for display)
-  const nonEmptyGroups = Object.entries(grouped).filter(
-    ([, v]) => v.products.length > 0
+  // Urutkan kategori secara alfabetis
+  const sortedGroups = Object.entries(grouped).sort(([a], [b]) =>
+    a.localeCompare(b, "id")
   );
-  const displayGroups =
-    nonEmptyGroups.length > 0 ? nonEmptyGroups : Object.entries(grouped);
 
   const totalProducts = products.length;
+  const totalCategories = sortedGroups.length;
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
@@ -237,28 +190,28 @@ async function PricelistContent() {
         </h1>
         <p className="text-gray-500 mt-3 text-sm">
           Terakhir diperbarui: {new Date().toLocaleString("id-ID")} &mdash;{" "}
-          {totalProducts} produk dari {displayGroups.length} kategori
+          {totalProducts} produk dari {totalCategories} kategori
         </p>
       </div>
 
       {/* Warnings */}
       {isKeyMissing && (
-        <ErrorBanner message='API Key belum dikonfigurasi. Isi FFZSTORE_API_KEY di file .env.local lalu restart server.' />
+        <ErrorBanner message="API Key belum dikonfigurasi. Isi FFZSTORE_API_KEY di file .env.local lalu restart server." />
       )}
       {!isKeyMissing && products.length === 0 && (
-        <ErrorBanner message="Tidak ada data produk yang berhasil dimuat. Periksa API Key dan koneksi ke api.ffzstore.com." />
+        <ErrorBanner message="Tidak ada data produk. Periksa API Key dan koneksi ke api.ffzstore.com." />
       )}
 
       {/* Tables per category */}
-      {displayGroups.map(([key, group]) => (
+      {sortedGroups.map(([categoryName, group]) => (
         <CategoryTable
-          key={key}
-          categoryName={group.name}
+          key={categoryName}
+          categoryName={categoryName}
           products={group.products}
         />
       ))}
 
-      {displayGroups.length === 0 && !isKeyMissing && (
+      {sortedGroups.length === 0 && !isKeyMissing && (
         <div className="text-center text-gray-500 py-20 text-lg">
           Tidak ada kategori atau produk yang ditemukan.
         </div>
