@@ -1,10 +1,13 @@
-import { Suspense } from "react";
+﻿"use client";
 
-// ─── Types (sesuai respons API ffzstore) ─────────────────────────────────────
+import { useEffect, useState, useCallback, useMemo } from "react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product {
   product_id: string;
   product_name: string;
+  product_sub_name: string;
   product_code: string;
   product_price: number;
   is_active: boolean;
@@ -13,34 +16,10 @@ interface Product {
   category_subtitle: string | null;
 }
 
-// ─── Data Fetching ────────────────────────────────────────────────────────────
-
-async function fetchProducts(): Promise<Product[]> {
-  const apiKey = process.env.FFZSTORE_API_KEY;
-
-  // Jangan fetch jika API key belum dikonfigurasi
-  if (!apiKey || apiKey === "your_api_key_here") return [];
-
-  const baseUrl = "https://api.ffzstore.com";
-
-  try {
-    const res = await fetch(`${baseUrl}/v1/products`, {
-      headers: { Authorization: apiKey },
-      next: { revalidate: 300 },
-    });
-
-    if (!res.ok) {
-      console.error("Failed to fetch products:", res.status, await res.text());
-      return [];
-    }
-
-    const json = await res.json();
-    // Respons: { statusCode, message, data: [...] }
-    return Array.isArray(json) ? json : (json.data ?? []);
-  } catch (err) {
-    console.error("Error fetching products:", err);
-    return [];
-  }
+interface ApiResponse {
+  data: Product[];
+  error?: string;
+  timestamp?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -50,6 +29,22 @@ function formatRupiah(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatDescription(product: Product): string {
+  let name = (product.product_name || "").trim();
+  // Hapus tanda kurung kosong seperti " ()" atau "()"
+  name = name.replace(/\s*\(\s*\)/g, "").trim();
+
+  const subName = (product.product_sub_name || "").trim();
+  if (
+    subName &&
+    subName.length > 0 &&
+    !name.toLowerCase().includes(subName.toLowerCase())
+  ) {
+    name = `${name} (${subName})`;
+  }
+  return name;
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
@@ -62,180 +57,276 @@ function CategoryTable({
   products: Product[];
 }) {
   return (
-    <div className="mb-8 overflow-x-auto shadow-sm">
-      <table className="w-full text-sm border-collapse">
-        {/* Category Header */}
-        <thead>
-          <tr>
-            <th
-              colSpan={4}
-              className="text-center text-white py-2 px-4 font-semibold text-base tracking-wide"
-              style={{ backgroundColor: "#5b8fa8" }}
-            >
-              {categoryName}
-            </th>
-          </tr>
-          {/* Column Headers */}
-          <tr style={{ backgroundColor: "#4a7a9b" }}>
-            <th className="text-center text-white py-2 px-4 font-medium w-1/5 border border-blue-300/30">
-              Kode
-            </th>
-            <th className="text-center text-white py-2 px-4 font-medium border border-blue-300/30">
-              Keterangan
-            </th>
-            <th className="text-center text-white py-2 px-4 font-medium w-1/5 border border-blue-300/30">
-              Harga
-            </th>
-            <th className="text-center text-white py-2 px-4 font-medium w-1/6 border border-blue-300/30">
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.length === 0 ? (
+    <div className="w-full mb-8 overflow-hidden rounded-md border border-[#9abecf] shadow-sm bg-white">
+      <div className="overflow-x-auto w-full">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            {/* Header Kategori */}
             <tr>
-              <td
+              <th
                 colSpan={4}
-                className="text-center py-4 text-gray-500 bg-white border border-gray-200"
+                className="text-center text-white py-2.5 px-4 font-bold text-base sm:text-lg tracking-wide select-none"
+                style={{ backgroundColor: "#5087a2" }}
               >
-                Tidak ada produk
-              </td>
+                {categoryName}
+              </th>
             </tr>
-          ) : (
-            products.map((product, idx) => (
-              <tr
-                key={product.product_id ?? idx}
-                className={idx % 2 === 0 ? "bg-white" : "bg-blue-50/40"}
-              >
-                {/* Kode */}
-                <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.product_code ?? "-"}
-                </td>
-                {/* Keterangan: nama produk, tampilkan subtitle jika ada */}
-                <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.product_name ?? "-"}
-                  {product.category_subtitle && (
-                    <span className="text-gray-400 ml-1 text-xs">
-                      ({product.category_subtitle})
-                    </span>
-                  )}
-                </td>
-                {/* Harga */}
-                <td className="text-center py-2 px-4 border border-gray-200/70 text-gray-700">
-                  {product.product_price != null
-                    ? formatRupiah(product.product_price)
-                    : "-"}
-                </td>
-                {/* Status berdasarkan is_active (boolean) */}
+            {/* Kolom Header */}
+            <tr style={{ backgroundColor: "#427690" }}>
+              <th className="text-center text-white py-2 px-3 font-semibold w-[22%] sm:w-[20%] border-r border-t border-[#6ca1ba]">
+                Kode
+              </th>
+              <th className="text-center text-white py-2 px-3 font-semibold w-[42%] sm:w-[45%] border-r border-t border-[#6ca1ba]">
+                Keterangan
+              </th>
+              <th className="text-center text-white py-2 px-3 font-semibold w-[22%] sm:w-[20%] border-r border-t border-[#6ca1ba]">
+                Harga
+              </th>
+              <th className="text-center text-white py-2 px-3 font-semibold w-[14%] sm:w-[15%] border-t border-[#6ca1ba]">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.length === 0 ? (
+              <tr>
                 <td
-                  className={`text-center py-2 px-4 border border-gray-200/70 font-semibold ${
-                    product.is_active ? "text-green-500" : "text-red-500"
-                  }`}
+                  colSpan={4}
+                  className="text-center py-6 text-gray-500 bg-white"
                 >
-                  {product.is_active ? "Open" : "Closed"}
+                  Tidak ada produk dalam kategori ini
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+            ) : (
+              products.map((product, idx) => {
+                const isEven = idx % 2 === 0;
+                return (
+                  <tr
+                    key={product.product_id || product.product_code || idx}
+                    className={`transition-colors hover:bg-[#e0eff7] ${
+                      isEven ? "bg-white" : "bg-[#f4f9fc]"
+                    }`}
+                  >
+                    {/* Kolom Kode */}
+                    <td className="text-center py-2 px-3 border-t border-r border-[#d4e4ed] font-medium text-gray-800 break-words">
+                      {product.product_code || "-"}
+                    </td>
 
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded mb-6">
-      <strong>Error:</strong> {message}
-    </div>
-  );
-}
+                    {/* Kolom Keterangan */}
+                    <td className="text-center py-2 px-3 border-t border-r border-[#d4e4ed] text-gray-800">
+                      {formatDescription(product)}
+                    </td>
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+                    {/* Kolom Harga */}
+                    <td className="text-center py-2 px-3 border-t border-r border-[#d4e4ed] font-semibold text-gray-800">
+                      {product.product_price != null
+                        ? formatRupiah(product.product_price)
+                        : "-"}
+                    </td>
 
-async function PricelistContent() {
-  const products = await fetchProducts();
-
-  const apiKey = process.env.FFZSTORE_API_KEY;
-  const isKeyMissing = !apiKey || apiKey === "your_api_key_here";
-
-  // Group by category_title (sudah tersedia langsung di tiap produk)
-  const grouped: Record<string, { subtitle: string | null; products: Product[] }> = {};
-
-  for (const product of products) {
-    const key = product.category_title ?? "Lainnya";
-    if (!grouped[key]) {
-      grouped[key] = { subtitle: product.category_subtitle, products: [] };
-    }
-    grouped[key].products.push(product);
-  }
-
-  // Urutkan kategori secara alfabetis
-  const sortedGroups = Object.entries(grouped).sort(([a], [b]) =>
-    a.localeCompare(b, "id")
-  );
-
-  const totalProducts = products.length;
-  const totalCategories = sortedGroups.length;
-
-  return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8 text-center">
-        <h1
-          className="text-3xl font-bold text-white py-4 px-8 rounded-lg inline-block"
-          style={{ backgroundColor: "#4a7a9b" }}
-        >
-          Daftar Harga FFZ Store
-        </h1>
-        <p className="text-gray-500 mt-3 text-sm">
-          Terakhir diperbarui: {new Date().toLocaleString("id-ID")} &mdash;{" "}
-          {totalProducts} produk dari {totalCategories} kategori
-        </p>
+                    {/* Kolom Status */}
+                    <td className="text-center py-2 px-3 border-t border-[#d4e4ed]">
+                      <span
+                        className={`inline-block font-semibold ${
+                          product.is_active
+                            ? "text-[#16a34a]"
+                            : "text-[#dc2626]"
+                        }`}
+                      >
+                        {product.is_active ? "Open" : "Closed"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Warnings */}
-      {isKeyMissing && (
-        <ErrorBanner message="API Key belum dikonfigurasi. Isi FFZSTORE_API_KEY di file .env.local lalu restart server." />
-      )}
-      {!isKeyMissing && products.length === 0 && (
-        <ErrorBanner message="Tidak ada data produk. Periksa API Key dan koneksi ke api.ffzstore.com." />
-      )}
-
-      {/* Tables per category */}
-      {sortedGroups.map(([categoryName, group]) => (
-        <CategoryTable
-          key={categoryName}
-          categoryName={categoryName}
-          products={group.products}
-        />
-      ))}
-
-      {sortedGroups.length === 0 && !isKeyMissing && (
-        <div className="text-center text-gray-500 py-20 text-lg">
-          Tidak ada kategori atau produk yang ditemukan.
-        </div>
-      )}
-
-      {/* Footer */}
-      <footer className="text-center text-gray-400 text-xs mt-10 pb-4">
-        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga dapat berubah
-        sewaktu-waktu
-      </footer>
-    </main>
+    </div>
   );
 }
+
+// ─── Main Page Component ──────────────────────────────────────────────────────
 
 export default function Page() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-screen text-gray-500 text-lg">
-          Memuat data produk...
-        </div>
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState<number>(20);
+  const [search, setSearch] = useState<string>("");
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/products", { cache: "no-store" });
+      const json: ApiResponse = await res.json();
+
+      if (!res.ok || json.error) {
+        setError(json.error || `HTTP error ${res.status}`);
+      } else {
+        setError(null);
+        setProducts(json.data || []);
+        setLastUpdated(new Date());
       }
-    >
-      <PricelistContent />
-    </Suspense>
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Gagal terhubung";
+      setError(message);
+    } finally {
+      setLoading(false);
+      setCountdown(20);
+    }
+  }, []);
+
+  // Initial fetch and auto-refresh interval 20 seconds
+  useEffect(() => {
+    fetchData();
+
+    const interval = setInterval(() => {
+      fetchData();
+    }, 20000);
+
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev > 1 ? prev - 1 : 20));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Filter products by search & category grouping
+  const groupedProducts = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    const filtered = products.filter((p) => {
+      if (!q) return true;
+      const matchName = p.product_name?.toLowerCase().includes(q);
+      const matchCode = p.product_code?.toLowerCase().includes(q);
+      const matchCat = p.category_title?.toLowerCase().includes(q);
+      const matchSub = p.product_sub_name?.toLowerCase().includes(q);
+      return matchName || matchCode || matchCat || matchSub;
+    });
+
+    const grouped: Record<string, Product[]> = {};
+
+    for (const item of filtered) {
+      const cat = item.category_title?.trim() || "Lainnya";
+      if (!grouped[cat]) {
+        grouped[cat] = [];
+      }
+      grouped[cat].push(item);
+    }
+
+    // Urutkan kategori secara alfabetis
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, "id"));
+  }, [products, search]);
+
+  const totalVisible = useMemo(() => {
+    return groupedProducts.reduce((acc, [, list]) => acc + list.length, 0);
+  }, [groupedProducts]);
+
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] text-[#1e293b] py-6 sm:py-10">
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        {/* Header Title */}
+        <div className="text-center mb-6">
+          <h1
+            className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white py-3.5 px-8 rounded-lg shadow-md inline-block tracking-tight"
+            style={{ backgroundColor: "#5087a2" }}
+          >
+            Daftar Harga FFZ Store
+          </h1>
+
+          {/* Status Bar */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm text-gray-600">
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              </span>
+              <span>
+                Auto refresh: <b>{countdown}s</b>
+              </span>
+            </div>
+
+            {lastUpdated && (
+              <span className="bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
+                Terakhir: <b>{lastUpdated.toLocaleTimeString("id-ID")}</b>
+              </span>
+            )}
+
+            <span className="bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
+              Total: <b>{totalVisible}</b> produk ({groupedProducts.length} kategori)
+            </span>
+
+            <button
+              onClick={() => fetchData()}
+              className="cursor-pointer bg-[#5087a2] hover:bg-[#407089] text-white px-3 py-1.5 rounded-full shadow-sm transition font-medium text-xs flex items-center gap-1"
+              title="Perbarui sekarang"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="mb-6 flex justify-center">
+          <div className="w-full max-w-md">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="🔍 Cari kode atau nama produk..."
+              className="w-full bg-white border border-[#9abecf] focus:border-[#5087a2] focus:ring-2 focus:ring-[#5087a2]/30 text-gray-800 placeholder-gray-400 text-sm rounded-lg px-4 py-2.5 shadow-sm outline-none transition text-center"
+            />
+          </div>
+        </div>
+
+        {/* Error Notification */}
+        {error && (
+          <div className="w-full mb-6 p-4 rounded-lg bg-red-50 border border-red-300 text-red-700 text-sm text-center shadow-sm">
+            <p className="font-semibold">⚠️ Terjadi Kendala:</p>
+            <p className="mt-1">{error}</p>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && products.length === 0 ? (
+          <div className="w-full bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#5087a2] border-t-transparent mb-3"></div>
+            <p className="text-gray-500 font-medium">Memuat daftar harga produk...</p>
+          </div>
+        ) : (
+          <>
+            {/* Render Category Tables */}
+            {groupedProducts.map(([categoryName, items]) => (
+              <CategoryTable
+                key={categoryName}
+                categoryName={categoryName}
+                products={items}
+              />
+            ))}
+
+            {groupedProducts.length === 0 && (
+              <div className="w-full bg-white rounded-lg p-12 text-center shadow-sm border border-gray-200">
+                <p className="text-gray-500 text-base">
+                  {search
+                    ? `Tidak ada produk yang cocok dengan "${search}"`
+                    : "Tidak ada produk yang tersedia saat ini."}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Footer */}
+        <footer className="text-center text-gray-500 text-xs mt-8 pb-4">
+          &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga dapat diperbarui sewaktu-waktu secara otomatis
+        </footer>
+      </div>
+    </div>
   );
 }
