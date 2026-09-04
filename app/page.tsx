@@ -174,10 +174,10 @@ export default function Page() {
     // Panggilan pertama
     loadData();
 
-    // Auto refresh setiap 60 detik
+    // Auto refresh setiap 20 detik
     const interval = setInterval(() => {
       loadData();
-    }, 60000);
+    }, 20000);
 
     return () => {
       isMounted = false;
@@ -190,8 +190,19 @@ export default function Page() {
     const grouped: Record<string, Product[]> = {};
 
     for (const item of products) {
-      // Pastikan produk dengan kode FFMX tidak dimasukkan
-      if (item.product_code && item.product_code.toUpperCase().includes("FFM")) {
+      // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
+      if (item.product_code && item.product_code.toUpperCase().includes("FFMX")) {
+        continue;
+      }
+
+      const catTitle = (item.category_title || "").toLowerCase();
+
+      // 2. Jangan tampilkan Mobile Legends: Filipina dan Mobile Legends: Global
+      if (
+        catTitle.includes("filipina") ||
+        catTitle.includes("philippines") ||
+        (catTitle.includes("mobile legends") && catTitle.includes("global"))
+      ) {
         continue;
       }
 
@@ -287,7 +298,7 @@ export default function Page() {
           paddingBottom: "20px",
         }}
       >
-        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga diperbarui otomatis setiap 60 detik
+        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga diperbarui otomatis setiap 20 detik
       </footer>
     </div>
   );

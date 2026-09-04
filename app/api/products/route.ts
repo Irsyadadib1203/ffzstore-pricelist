@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,10 +33,19 @@ export async function GET() {
     const json = await res.json();
     const rawList = Array.isArray(json) ? json : (json.data ?? []);
 
-    // Filter out items where product_code contains "FFMX"
-    const filtered = rawList.filter((item: { product_code?: string }) => {
-      if (!item.product_code) return true;
-      return !item.product_code.toUpperCase().includes("FFMX");
+    // Filter out:
+    // 1. FFMX codes
+    // 2. Mobile Legends: Filipina
+    // 3. Mobile Legends: Global
+    const filtered = rawList.filter((item: { product_code?: string; category_title?: string }) => {
+      const code = (item.product_code || "").toUpperCase();
+      const cat = (item.category_title || "").toLowerCase();
+
+      if (code.includes("FFMX")) return false;
+      if (cat.includes("filipina") || cat.includes("philippines")) return false;
+      if (cat.includes("mobile legends") && cat.includes("global")) return false;
+
+      return true;
     });
 
     return NextResponse.json({
