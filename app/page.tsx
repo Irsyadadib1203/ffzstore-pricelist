@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo } from "react";
 
@@ -33,7 +33,15 @@ function formatRupiah(amount: number): string {
 
 function formatDescription(product: Product): string {
   let name = (product.product_name || "").trim();
-  // Hapus tanda kurung kosong seperti " ()" atau "()"
+  const isFreeFire = (product.category_title || "").toLowerCase().includes("free fire");
+
+  if (isFreeFire) {
+    // Khusus kategori Free Fire: hilangkan kurung beserta teks di dalamnya
+    name = name.replace(/\s*\([^)]*\)/g, "").trim();
+    return name;
+  }
+
+  // Kategori lainnya: hapus kurung kosong " ()"
   name = name.replace(/\s*\(\s*\)/g, "").trim();
 
   const subName = (product.product_sub_name || "").trim();
