@@ -174,10 +174,10 @@ export default function Page() {
     // Panggilan pertama
     loadData();
 
-    // Auto refresh setiap 20 detik
+    // Auto refresh setiap 60 detik
     const interval = setInterval(() => {
       loadData();
-    }, 20000);
+    }, 60000);
 
     return () => {
       isMounted = false;
@@ -191,7 +191,7 @@ export default function Page() {
 
     for (const item of products) {
       // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
-      if (item.product_code && item.product_code.toUpperCase().includes("FFMX")) {
+      if (item.product_code && item.product_code.toUpperCase().includes("FFM")) {
         continue;
       }
 
@@ -298,7 +298,7 @@ export default function Page() {
           paddingBottom: "20px",
         }}
       >
-        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga diperbarui otomatis setiap 20 detik
+        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga diperbarui otomatis setiap 60 detik
       </footer>
     </div>
   );
