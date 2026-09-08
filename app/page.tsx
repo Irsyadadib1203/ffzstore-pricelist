@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo } from "react";
 
@@ -68,12 +68,12 @@ function getMlSortRank(product: Product): number {
 
   // tangkap ml-tw, ml_tw, ml tw, mltw, ml-tw-01, dst — cek dulu sebelum mlwp
   // supaya kode seperti "ml-tw" tidak salah kena aturan mlwp
-  if (/ml[\s_-]*tw/.test(code)) return 2;
+  if (/ml[\s_-]*tw/.test(code)) return 0;
 
   // tangkap ml-wp, ml_wp, ml wp, mlwp, dst
   if (/ml[\s_-]*wp/.test(code)) return 1;
 
-  return 0;
+  return 2;
 }
 
 /** Mengurutkan produk dalam satu kategori: denom ML biasa → MLWP → MLTW,
