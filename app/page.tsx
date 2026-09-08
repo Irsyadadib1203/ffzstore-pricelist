@@ -191,7 +191,7 @@ export default function Page() {
 
     for (const item of products) {
       // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
-      if (item.product_code && item.product_code.toUpperCase().includes("FFM")) {
+      if (item.product_code && item.product_code.toUpperCase().includes("FFM")||item.product_code.toUpperCase().includes("FFP")) {
         continue;
       }
 
