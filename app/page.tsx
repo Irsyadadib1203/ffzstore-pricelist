@@ -55,6 +55,35 @@ function formatDescription(product: Product): string {
   return name;
 }
 
+/**
+ * Urutan tampilan untuk produk Mobile Legends:
+ *   0 — denom ML biasa (top-up diamond) & produk lain di luar ML
+ *   1 — MLWP (Weekly Pass)
+ *   2 — MLTW (Weekly Diamond Pass / membership mingguan)
+ * MLTW selalu paling bawah, MLWP tepat di atasnya, sisanya (denom biasa)
+ * tetap di urutan paling atas sesuai urutan asli dari API.
+ */
+function getMlSortRank(product: Product): number {
+  const code = (product.product_code || "").trim().toLowerCase();
+
+  // tangkap ml-tw, ml_tw, ml tw, mltw, ml-tw-01, dst — cek dulu sebelum mlwp
+  // supaya kode seperti "ml-tw" tidak salah kena aturan mlwp
+  if (/ml[\s_-]*tw/.test(code)) return 2;
+
+  // tangkap ml-wp, ml_wp, ml wp, mlwp, dst
+  if (/ml[\s_-]*wp/.test(code)) return 1;
+
+  return 0;
+}
+
+/** Mengurutkan produk dalam satu kategori: denom ML biasa → MLWP → MLTW,
+ * dengan urutan asli tetap terjaga di dalam masing-masing grup (stable sort). */
+function sortProductsByMlPriority(products: Product[]): Product[] {
+  return [...products].sort(
+    (a, b) => getMlSortRank(a) - getMlSortRank(b),
+  );
+}
+
 // ─── Table Component ─────────────────────────────────────────────────────────
 
 function CategoryTable({
@@ -213,6 +242,11 @@ export default function Page() {
         grouped[cat] = [];
       }
       grouped[cat].push(item);
+    }
+
+    // 3. Urutkan tiap kategori: denom ML biasa → MLWP → MLTW (paling bawah)
+    for (const cat of Object.keys(grouped)) {
+      grouped[cat] = sortProductsByMlPriority(grouped[cat]);
     }
 
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, "id"));
