@@ -191,7 +191,7 @@ export default function Page() {
 
     for (const item of products) {
       // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
-      if (item.product_code && item.product_code.toUpperCase().includes("FFM")||item.product_code.toUpperCase().includes("FFP")) {
+      if (item.product_code && item.product_code.toUpperCase().includes("FFM")||item.product_code.toUpperCase().includes("FFP")||item.product_code.toUpperCase().includes("MLP")) {
         continue;
       }
 
@@ -200,9 +200,11 @@ export default function Page() {
       // 2. Jangan tampilkan Mobile Legends: Filipina dan Mobile Legends: Global
       if (
         catTitle.includes("filipina") ||
+        catTitle.includes("free firee") ||
         catTitle.includes("philippines") ||
         (catTitle.includes("mobile legends") && catTitle.includes("global"))
-      ) {
+      )
+      {
         continue;
       }
 
