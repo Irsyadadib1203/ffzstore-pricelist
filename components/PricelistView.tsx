@@ -37,10 +37,12 @@ function formatDescription(product: Product): string {
   const isFreeFire = (product.category_title || "").toLowerCase().includes("free fire");
 
   if (isFreeFire) {
+    // Khusus kategori Free Fire: hilangkan kurung beserta teks di dalamnya
     name = name.replace(/\s*\([^)]*\)/g, "").trim();
     return name;
   }
 
+  // Kategori lainnya: hapus kurung kosong " ()"
   name = name.replace(/\s*\(\s*\)/g, "").trim();
 
   const subName = (product.product_sub_name || "").trim();
@@ -54,13 +56,29 @@ function formatDescription(product: Product): string {
   return name;
 }
 
+/**
+ * Urutan tampilan untuk produk Mobile Legends:
+ *   0 — denom ML biasa (top-up diamond) & produk lain di luar ML
+ *   1 — MLWP (Weekly Pass)
+ *   2 — MLTW (Weekly Diamond Pass / membership mingguan)
+ * MLTW selalu paling bawah, MLWP tepat di atasnya, sisanya (denom biasa)
+ * tetap di urutan paling atas sesuai urutan asli dari API.
+ */
 function getMlSortRank(product: Product): number {
   const code = (product.product_code || "").trim().toLowerCase();
+
+  // tangkap ml-tw, ml_tw, ml tw, mltw, ml-tw-01, dst — cek dulu sebelum mlwp
+  // supaya kode seperti "ml-tw" tidak salah kena aturan mlwp
   if (/ml[\s_-]*tw/.test(code)) return 1;
+
+  // tangkap ml-wp, ml_wp, ml wp, mlwp, dst
   if (/ml[\s_-]*wp/.test(code)) return 0;
+
   return 2;
 }
 
+/** Mengurutkan produk dalam satu kategori: denom ML biasa → MLWP → MLTW,
+ * dengan urutan asli tetap terjaga di dalam masing-masing grup (stable sort). */
 function sortProductsByMlPriority(products: Product[]): Product[] {
   return [...products].sort(
     (a, b) => getMlSortRank(a) - getMlSortRank(b),
@@ -80,22 +98,24 @@ function CategoryTable({
     <div className="table-wrapper">
       <table className="pricelist-table">
         <thead>
+          {/* Header Kategori */}
           <tr>
             <th colSpan={4} className="category-header">
               {categoryName}
             </th>
           </tr>
+          {/* Header Kolom */}
           <tr>
-            <th className="column-header" style={{ width: "8%" }}>
-              No
+            <th className="column-header" style={{ width: "20%" }}>
+              Kode
             </th>
-            <th className="column-header" style={{ width: "52%" }}>
-              Deskripsi
+            <th className="column-header" style={{ width: "45%" }}>
+              Keterangan
             </th>
-            <th className="column-header" style={{ width: "24%" }}>
+            <th className="column-header" style={{ width: "20%" }}>
               Harga
             </th>
-            <th className="column-header" style={{ width: "16%" }}>
+            <th className="column-header" style={{ width: "15%" }}>
               Status
             </th>
           </tr>
@@ -103,24 +123,35 @@ function CategoryTable({
         <tbody>
           {products.length === 0 ? (
             <tr>
-              <td colSpan={4} className="table-cell" style={{ color: "#94a3b8" }}>
-                Tidak ada produk aktif
+              <td colSpan={4} className="table-cell" style={{ padding: "16px" }}>
+                Tidak ada produk
               </td>
             </tr>
           ) : (
-            products.map((product, index) => {
-              const rowClass = index % 2 === 0 ? "table-row-even" : "table-row-odd";
+            products.map((product, idx) => {
+              const isEven = idx % 2 === 0;
               return (
-                <tr key={product.product_id || `${product.product_code}-${index}`} className={rowClass}>
-                  <td className="table-cell">{index + 1}</td>
-                  <td className="table-cell" style={{ textAlign: "left", paddingLeft: "16px" }}>
-                    {formatDescription(product)}
-                  </td>
-                  <td className="table-cell" style={{ fontWeight: 600 }}>
-                    Rp {formatRupiah(product.product_price)}
+                <tr
+                  key={product.product_id || product.product_code || idx}
+                  className={isEven ? "table-row-even" : "table-row-odd"}
+                >
+                  <td className="table-cell">
+                    {product.product_code || "-"}
                   </td>
                   <td className="table-cell">
-                    <span className={product.is_active ? "status-open" : "status-closed"}>
+                    {formatDescription(product)}
+                  </td>
+                  <td className="table-cell">
+                    {product.product_price != null
+                      ? formatRupiah(product.product_price)
+                      : "-"}
+                  </td>
+                  <td className="table-cell">
+                    <span
+                      className={
+                        product.is_active ? "status-open" : "status-closed"
+                      }
+                    >
                       {product.is_active ? "Open" : "Closed"}
                     </span>
                   </td>
@@ -138,10 +169,10 @@ function CategoryTable({
 
 export default function PricelistView({
   tier,
-  title,
+  title = "Daftar Harga FFZ Store",
 }: {
   tier: "h2h" | "digi";
-  title: string;
+  title?: string;
 }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,8 +209,10 @@ export default function PricelistView({
       }
     }
 
+    // Panggilan pertama
     loadData();
 
+    // Auto refresh setiap 60 detik
     const interval = setInterval(() => {
       loadData();
     }, 60000);
@@ -190,10 +223,12 @@ export default function PricelistView({
     };
   }, [tier]);
 
+  // Grouping by Category
   const groupedProducts = useMemo(() => {
     const grouped: Record<string, Product[]> = {};
 
     for (const item of products) {
+      // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
       if (
         item.product_code &&
         (item.product_code.toUpperCase().includes("FFM") ||
@@ -205,6 +240,7 @@ export default function PricelistView({
 
       const catTitle = (item.category_title || "").toLowerCase();
 
+      // 2. Jangan tampilkan Mobile Legends: Filipina dan Mobile Legends: Global
       if (
         catTitle.includes("filipina") ||
         catTitle.includes("free firee") ||
@@ -221,6 +257,7 @@ export default function PricelistView({
       grouped[cat].push(item);
     }
 
+    // 3. Urutkan tiap kategori: denom ML biasa → MLWP → MLTW (paling bawah)
     for (const cat of Object.keys(grouped)) {
       grouped[cat] = sortProductsByMlPriority(grouped[cat]);
     }
@@ -246,7 +283,7 @@ export default function PricelistView({
             fontSize: "24px",
             fontWeight: "bold",
             letterSpacing: "0.5px",
-            marginBottom: "8px",
+            marginBottom: "10px",
           }}
         >
           {title}
@@ -260,7 +297,7 @@ export default function PricelistView({
               fontWeight: 700,
               fontSize: "14px",
               marginTop: "2px",
-              marginBottom: "4px",
+              marginBottom: "6px",
               letterSpacing: "0.3px",
             }}
           >
