@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # deploy.sh - Jalankan ini setiap kali mau update di VPS
 set -e
 
@@ -6,7 +6,7 @@ echo "==> Pull latest code..."
 git pull origin main
 
 echo "==> Install dependencies..."
-npm ci --omit=dev
+npm install
 
 echo "==> Build Next.js..."
 npm run build
