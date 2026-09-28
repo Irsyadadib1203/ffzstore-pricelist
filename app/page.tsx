@@ -1,340 +1,276 @@
-﻿"use client";
+import type { Metadata } from "next";
 
-import { useEffect, useState, useMemo } from "react";
+export const metadata: Metadata = {
+  title: "FFZ Store - Platform Top Up & Produk Digital",
+  description: "Penyedia layanan top up game dan produk digital otomatis 24 jam terpercaya.",
+};
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Product {
-  product_id: string;
-  product_name: string;
-  product_sub_name: string;
-  product_code: string;
-  product_price: number;
-  is_active: boolean;
-  category_type: string;
-  category_title: string;
-  category_subtitle: string | null;
-}
-
-interface ApiResponse {
-  data: Product[];
-  error?: string;
-  timestamp?: string;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatRupiah(amount: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatDescription(product: Product): string {
-  let name = (product.product_name || "").trim();
-  const isFreeFire = (product.category_title || "").toLowerCase().includes("free fire");
-
-  if (isFreeFire) {
-    // Khusus kategori Free Fire: hilangkan kurung beserta teks di dalamnya
-    name = name.replace(/\s*\([^)]*\)/g, "").trim();
-    return name;
-  }
-
-  // Kategori lainnya: hapus kurung kosong " ()"
-  name = name.replace(/\s*\(\s*\)/g, "").trim();
-
-  const subName = (product.product_sub_name || "").trim();
-  if (
-    subName &&
-    subName.length > 0 &&
-    !name.toLowerCase().includes(subName.toLowerCase())
-  ) {
-    name = `${name} (${subName})`;
-  }
-  return name;
-}
-
-/**
- * Urutan tampilan untuk produk Mobile Legends:
- *   0 — denom ML biasa (top-up diamond) & produk lain di luar ML
- *   1 — MLWP (Weekly Pass)
- *   2 — MLTW (Weekly Diamond Pass / membership mingguan)
- * MLTW selalu paling bawah, MLWP tepat di atasnya, sisanya (denom biasa)
- * tetap di urutan paling atas sesuai urutan asli dari API.
- */
-function getMlSortRank(product: Product): number {
-  const code = (product.product_code || "").trim().toLowerCase();
-
-  // tangkap ml-tw, ml_tw, ml tw, mltw, ml-tw-01, dst — cek dulu sebelum mlwp
-  // supaya kode seperti "ml-tw" tidak salah kena aturan mlwp
-  if (/ml[\s_-]*tw/.test(code)) return 1;
-
-  // tangkap ml-wp, ml_wp, ml wp, mlwp, dst
-  if (/ml[\s_-]*wp/.test(code)) return 0;
-
-  return 2;
-}
-
-/** Mengurutkan produk dalam satu kategori: denom ML biasa → MLWP → MLTW,
- * dengan urutan asli tetap terjaga di dalam masing-masing grup (stable sort). */
-function sortProductsByMlPriority(products: Product[]): Product[] {
-  return [...products].sort(
-    (a, b) => getMlSortRank(a) - getMlSortRank(b),
-  );
-}
-
-// ─── Table Component ─────────────────────────────────────────────────────────
-
-function CategoryTable({
-  categoryName,
-  products,
-}: {
-  categoryName: string;
-  products: Product[];
-}) {
+export default function HomePage() {
   return (
-    <div className="table-wrapper">
-      <table className="pricelist-table">
-        <thead>
-          {/* Header Kategori */}
-          <tr>
-            <th colSpan={4} className="category-header">
-              {categoryName}
-            </th>
-          </tr>
-          {/* Header Kolom */}
-          <tr>
-            <th className="column-header" style={{ width: "20%" }}>
-              Kode
-            </th>
-            <th className="column-header" style={{ width: "45%" }}>
-              Keterangan
-            </th>
-            <th className="column-header" style={{ width: "20%" }}>
-              Harga
-            </th>
-            <th className="column-header" style={{ width: "15%" }}>
-              Status
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.length === 0 ? (
-            <tr>
-              <td colSpan={4} className="table-cell" style={{ padding: "16px" }}>
-                Tidak ada produk
-              </td>
-            </tr>
-          ) : (
-            products.map((product, idx) => {
-              const isEven = idx % 2 === 0;
-              return (
-                <tr
-                  key={product.product_id || product.product_code || idx}
-                  className={isEven ? "table-row-even" : "table-row-odd"}
-                >
-                  <td className="table-cell">
-                    {product.product_code || "-"}
-                  </td>
-                  <td className="table-cell">
-                    {formatDescription(product)}
-                  </td>
-                  <td className="table-cell">
-                    {product.product_price != null
-                      ? formatRupiah(product.product_price)
-                      : "-"}
-                  </td>
-                  <td className="table-cell">
-                    <span
-                      className={
-                        product.is_active ? "status-open" : "status-closed"
-                      }
-                    >
-                      {product.is_active ? "Open" : "Closed"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        backgroundColor: "#f8fafc",
+        color: "#1e293b",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      {/* Top Navbar */}
+      <header
+        style={{
+          borderBottom: "1px solid #e2e8f0",
+          backgroundColor: "#ffffff",
+          padding: "16px 24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1100px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "8px",
+                backgroundColor: "#4f839d",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                fontSize: "18px",
+              }}
+            >
+              F
+            </div>
+            <span style={{ fontSize: "20px", fontWeight: "bold", color: "#1e293b" }}>
+              FFZ Store
+            </span>
+          </div>
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                padding: "6px 12px",
+                borderRadius: "20px",
+                fontSize: "13px",
+                color: "#166534",
+                fontWeight: 500,
+              }}
+            >
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  backgroundColor: "#22c55e",
+                  display: "inline-block",
+                }}
+              />
+              Sistem Normal
+            </div>
 
-export default function Page() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+            <a
+              href="https://ffzstore.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#4f839d",
+                textDecoration: "none",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                backgroundColor: "#ffffff",
+              }}
+            >
+              Buka ffzstore.com &rarr;
+            </a>
+          </div>
+        </div>
+      </header>
 
-  useEffect(() => {
-    let isMounted = true;
+      {/* Main Content */}
+      <main
+        style={{
+          maxWidth: "850px",
+          margin: "0 auto",
+          padding: "60px 20px 40px",
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "inline-block",
+            padding: "6px 16px",
+            borderRadius: "20px",
+            backgroundColor: "#e0f2fe",
+            color: "#0369a1",
+            fontSize: "13px",
+            fontWeight: 600,
+            marginBottom: "20px",
+          }}
+        >
+          Penyedia Layanan Digital & Game
+        </div>
 
-    async function loadData() {
-      try {
-        const res = await fetch("/api/products", { cache: "no-store" });
-        const json: ApiResponse = await res.json();
-
-        if (!isMounted) return;
-
-        if (!res.ok || json.error) {
-          setError(json.error || `HTTP error ${res.status}`);
-        } else {
-          setError(null);
-          setProducts(json.data || []);
-          setLastUpdated(new Date().toLocaleTimeString("id-ID"));
-        }
-      } catch (err: unknown) {
-        if (!isMounted) return;
-        const message = err instanceof Error ? err.message : "Gagal memuat data";
-        setError(message);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    // Panggilan pertama
-    loadData();
-
-    // Auto refresh setiap 60 detik
-    const interval = setInterval(() => {
-      loadData();
-    }, 60000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Grouping by Category
-  const groupedProducts = useMemo(() => {
-    const grouped: Record<string, Product[]> = {};
-
-    for (const item of products) {
-      // 1. Pastikan produk dengan kode FFMX tidak dimasukkan
-      if (item.product_code && item.product_code.toUpperCase().includes("FFM")||item.product_code.toUpperCase().includes("FFP")||item.product_code.toUpperCase().includes("MLP")) {
-        continue;
-      }
-
-      const catTitle = (item.category_title || "").toLowerCase();
-
-      // 2. Jangan tampilkan Mobile Legends: Filipina dan Mobile Legends: Global
-      if (
-        catTitle.includes("filipina") ||
-        catTitle.includes("free firee") ||
-        catTitle.includes("philippines") ||
-        (catTitle.includes("mobile legends") && catTitle.includes("global"))
-      )
-      {
-        continue;
-      }
-
-      const cat = item.category_title?.trim() || "Lainnya";
-      if (!grouped[cat]) {
-        grouped[cat] = [];
-      }
-      grouped[cat].push(item);
-    }
-
-    // 3. Urutkan tiap kategori: denom ML biasa → MLWP → MLTW (paling bawah)
-    for (const cat of Object.keys(grouped)) {
-      grouped[cat] = sortProductsByMlPriority(grouped[cat]);
-    }
-
-    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b, "id"));
-  }, [products]);
-
-  const totalProducts = useMemo(() => {
-    return groupedProducts.reduce((acc, [, list]) => acc + list.length, 0);
-  }, [groupedProducts]);
-
-  return (
-    <div className="pricelist-container">
-      {/* Header Halaman */}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <h1
           style={{
-            backgroundColor: "#4f839d",
-            color: "#ffffff",
-            display: "inline-block",
-            padding: "10px 24px",
-            borderRadius: "6px",
-            fontSize: "24px",
-            fontWeight: "bold",
-            letterSpacing: "0.5px",
-            marginBottom: "10px",
+            fontSize: "36px",
+            fontWeight: 800,
+            color: "#0f172a",
+            lineHeight: 1.3,
+            marginBottom: "16px",
+            letterSpacing: "-0.5px",
           }}
         >
-          Daftar Harga FFZ Store
+          Solusi Top Up Cepat, Aman, & Terintegrasi
         </h1>
 
-        <p style={{ color: "#64748b", fontSize: "13px", marginTop: "4px" }}>
-          {lastUpdated && `Terakhir diperbarui: ${lastUpdated}`}
-          {totalProducts > 0 &&
-            ` — ${totalProducts} produk dari ${groupedProducts.length} kategori`}
-        </p>
-      </div>
-
-      {/* Error Banner */}
-      {error && (
-        <div
+        <p
           style={{
-            backgroundColor: "#fee2e2",
-            border: "1px solid #f87171",
-            color: "#b91c1c",
-            padding: "12px 16px",
-            borderRadius: "6px",
-            marginBottom: "16px",
-            textAlign: "center",
-            fontSize: "14px",
-          }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && products.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
+            fontSize: "16px",
             color: "#64748b",
-            fontSize: "15px",
+            lineHeight: 1.6,
+            maxWidth: "600px",
+            margin: "0 auto 32px",
           }}
         >
-          Memuat data harga...
+          FFZ Store menyediakan integrasi pengisian game dan produk digital otomatis dengan dukungan infrastruktur stabil dan harga terbaik.
+        </p>
+
+        {/* Button Menuju Website Utama */}
+        <div style={{ marginBottom: "50px" }}>
+          <a
+            href="https://ffzstore.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "10px",
+              backgroundColor: "#4f839d",
+              color: "#ffffff",
+              fontWeight: 600,
+              fontSize: "15px",
+              padding: "14px 32px",
+              borderRadius: "8px",
+              textDecoration: "none",
+              boxShadow: "0 4px 12px rgba(79, 131, 157, 0.25)",
+              transition: "transform 0.15s ease, background-color 0.15s ease",
+            }}
+          >
+            <span>Kunjungi Website FFZ Store</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </a>
         </div>
-      ) : (
-        /* Tabel per Kategori */
-        groupedProducts.map(([categoryName, items]) => (
-          <CategoryTable
-            key={categoryName}
-            categoryName={categoryName}
-            products={items}
-          />
-        ))
-      )}
+
+        {/* Feature Cards Grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "20px",
+            marginTop: "30px",
+            textAlign: "left",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              padding: "24px 20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div style={{ fontSize: "24px", marginBottom: "12px" }}>⚡</div>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px", color: "#1e293b" }}>
+              Proses Otomatis
+            </h3>
+            <p style={{ fontSize: "13.5px", color: "#64748b", lineHeight: 1.5 }}>
+              Pesanan diproses secara instan dan otomatis melalui jalur API langsung tanpa penundaan.
+            </p>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              padding: "24px 20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div style={{ fontSize: "24px", marginBottom: "12px" }}>🛡️</div>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px", color: "#1e293b" }}>
+              Aman & Terpercaya
+            </h3>
+            <p style={{ fontSize: "13.5px", color: "#64748b", lineHeight: 1.5 }}>
+              Keamanan data transaksi terjamin dengan jalur koneksi berstandar industri.
+            </p>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "12px",
+              padding: "24px 20px",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div style={{ fontSize: "24px", marginBottom: "12px" }}>🕒</div>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px", color: "#1e293b" }}>
+              Siap 24/7
+            </h3>
+            <p style={{ fontSize: "13.5px", color: "#64748b", lineHeight: 1.5 }}>
+              Infrastruktur server selalu aktif melayani transaksi kebutuhan digital Anda setiap saat.
+            </p>
+          </div>
+        </div>
+      </main>
 
       {/* Footer */}
       <footer
         style={{
+          borderTop: "1px solid #e2e8f0",
+          backgroundColor: "#ffffff",
+          padding: "24px",
           textAlign: "center",
           color: "#94a3b8",
-          fontSize: "12px",
-          marginTop: "30px",
-          paddingBottom: "20px",
+          fontSize: "13px",
         }}
       >
-        &copy; {new Date().getFullYear()} FFZ Store &mdash; Harga diperbarui otomatis setiap 60 detik
+        <p>&copy; {new Date().getFullYear()} FFZ Store. Seluruh hak cipta dilindungi.</p>
       </footer>
     </div>
   );

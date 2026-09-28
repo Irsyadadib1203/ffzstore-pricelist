@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "tier1": 5,
+  "tier2": 10,
+  "tier3": 25,
+  "overrides": {
+    "FF-82": 10,
+    "FF-195": 25
+  }
+}
